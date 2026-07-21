@@ -1,95 +1,246 @@
-# Anvil — train ML models as a team, export them anywhere
+# Anvil Forger - ML Model Training Platform
 
-A self-hosted internal tool: your team logs in to a shared workspace,
-uploads a CSV or a folder of labeled images, and Anvil runs a real
-AutoML sweep across several algorithms, picks the winner by
-cross-validation, and shows you the leaderboard, confusion matrix, and
-feature importance.
+A collaborative web platform for training ML models, built with Flask and containerized with Docker.
 
-Then — the actual point — you get the model back out, three ways:
+## Features
 
-1. **Pickle bundle** — a `.zip` with the fitted scikit-learn pipeline +
-   a loader script, for teams staying inside Python.
-2. **Universal export** — `model.json` + a ~150-line inference engine in
-   both pure Python and pure JavaScript, **zero dependencies**. No
-   scikit-learn, no numpy, no ONNX runtime needed on the receiving end.
-   Verified bit-for-bit identical to scikit-learn's own predictions,
-   including the float32 precision scikit-learn's own tree models use
-   internally.
-3. **Hosted API** — every model gets a live `POST /api/v1/predict/<id>`
-   endpoint, gated by a per-team API key, served directly by this app.
+- **Team-based collaboration** — Create teams and share projects with teammates via invite codes
+- **Tabular ML** — Train classification and regression models on CSV data (scikit-learn)
+- **Image classification** — Train image classifiers on labeled image folders
+- **Model export** — Export as pickle, ONNX, or universal (dependency-free) formats
+- **Model serving** — REST API to make predictions on any model
+- **ONNX import** — Bring your own ONNX models and use them in Anvil
 
-## Honest scope
+## Quick Start
 
-- **Tabular models**: real AutoML — logistic/linear regression, random
-  forest, gradient boosting, SVM, k-NN — picked by cross-validation.
-- **Image classification**: uses classical computer-vision features
-  (HOG + color histograms via scikit-image) feeding a scikit-learn
-  classifier, not a deep CNN. This is genuinely useful for small,
-  visually-distinct classification tasks (defect tagging, simple
-  sorting) but won't match a deep-learning model on complex natural
-  images. The app tells you this up front rather than pretending
-  otherwise.
-- **Universal export** (dependency-free) is available for logistic
-  regression, linear regression, and random forest — the algorithms
-  with a clean closed-form/tree-structure serialization. Gradient
-  boosting, SVM, and k-NN still export via pickle bundle or the hosted
-  API, just not as a dependency-free file.
-
-## Project structure
-
-```
-anvil/
-├── app.py                     # Flask entry point, all routes
-├── src/
-│   ├── db.py                    # SQLite schema + CRUD
-│   ├── auth.py                   # team/user auth, session, login_required
-│   ├── constants.py                # algorithms, task kinds, export support
-│   ├── tabular_training.py           # AutoML engine for CSV data
-│   ├── image_training.py               # classical-CV image classifier engine
-│   ├── export_universal.py               # dependency-free JSON + Python/JS export
-│   ├── export_bundle.py                    # zip builders for both file exports
-│   └── api_serving.py                        # hosted prediction API blueprint
-├── templates/                  # Jinja2 (dashboard, project, model detail, etc.)
-├── static/css/style.css        # dark "forge" theme
-├── data/                       # sqlite db + uploaded datasets + model artifacts
-├── Dockerfile / docker-compose.yml
-└── requirements.txt
-```
-
-## Running locally
+### Local Development
 
 ```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Run locally (Flask development server)
 python app.py
+# Access: http://localhost:5000
 ```
 
-Open http://localhost:5000, create a team, and you're in. Share the
-invite code shown after signup so teammates can join the same
-workspace.
-
-## Running with Docker
+### Docker Development
 
 ```bash
-docker compose up --build
+# Build image
+docker build -t anvil-forger .
+
+# Run container
+docker run -d -p 5000:5000 \
+  -v $(pwd)/data:/app/data \
+  -e ANVIL_SECRET_KEY=your-secret-key \
+  anvil-forger
 ```
 
-## Data model
+### Docker Compose
 
-SQLite (`data/anvil.db`): `teams`, `users`, `projects`, `datasets`,
-`models` (metrics + leaderboard + artifact path), `api_keys`,
-`prediction_log`. Training runs synchronously in the request — fine for
-small/medium datasets on an internal tool; for large datasets or heavy
-traffic you'd want to move `train_model()` in `app.py` to a background
-worker (Celery/RQ), which the module boundaries here are already set up
-to support cleanly.
+```bash
+# Development (with hot-reload)
+docker-compose up
 
-## Security notes for a real deployment
+# Production
+docker-compose -f docker-compose.prod.yml up -d
+```
 
-- Set `ANVIL_SECRET_KEY` to a real random value (the Docker Compose file
-  has a placeholder).
-- This uses Flask's signed-cookie sessions — fine behind your own
-  VPN/HTTPS for an internal tool, not a substitute for SSO if you need
-  it.
-- API keys are full-access per-team, not per-model scoped. Add scoping
-  if different teammates should only reach specific models.
+## CI/CD Workflows
+
+This project includes three automated GitHub Actions workflows:
+
+### 1. Docker Build & Push (Docker Hub)
+**File:** `.github/workflows/docker-build-push.yml`
+
+Triggers on:
+- `push` to `main` branch
+- `pull_request` to `main` branch
+- Manual trigger (`workflow_dispatch`)
+
+Actions:
+- Builds multi-stage Docker image
+- On PR: builds only (no push)
+- On push to main: builds and pushes to Docker Hub with tags:
+  - `latest` (default branch)
+  - `main` (branch name)
+  - Git SHA prefix
+  - Semantic version tags (if tagged)
+
+**Required Secrets:**
+- `DOCKERHUB_USERNAME` — Your Docker Hub username
+- `DOCKERHUB_TOKEN` — Your Docker Hub Personal Access Token (not password!)
+
+### 2. GitHub Container Registry (GHCR)
+**File:** `.github/workflows/ghcr-build-push.yml`
+
+Triggers on:
+- `push` to `main` branch
+- Manual trigger (`workflow_dispatch`)
+
+Actions:
+- Builds and pushes to GitHub Container Registry (`ghcr.io`)
+- Uses GitHub's built-in `GITHUB_TOKEN` (no additional secrets needed)
+
+**Required Secrets:**
+- None (uses `secrets.GITHUB_TOKEN` automatically)
+
+### 3. Tests
+**File:** `.github/workflows/tests.yml`
+
+Triggers on:
+- `push` to `main` or `develop`
+- `pull_request` to `main` or `develop`
+- Manual trigger (`workflow_dispatch`)
+
+Actions:
+- Python 3.12 test matrix
+- Installs dependencies from `requirements.txt`
+- Runs linting (flake8)
+- Runs pytest with coverage
+- Uploads coverage to Codecov
+- Builds Docker image and runs health check
+- Checks image size
+
+**Required Secrets:**
+- None (optional: Codecov token for coverage reports)
+
+## Setting Up Secrets
+
+### Docker Hub
+
+1. Create a Docker Hub account: https://hub.docker.com/signup
+2. Generate a Personal Access Token:
+   - Log in to Docker Hub
+   - Account Settings → Security → New Access Token
+   - Copy the token immediately
+3. Add to GitHub:
+   - Go to your repository → Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Add `DOCKERHUB_USERNAME` with your Docker Hub username
+   - Add `DOCKERHUB_TOKEN` with the token you copied
+
+### GitHub Container Registry (GHCR)
+
+No additional setup needed! GitHub automatically provides `secrets.GITHUB_TOKEN`.
+
+## Deployment
+
+### Deploy Latest from Docker Hub
+
+```bash
+docker pull ayibongwe02/anvil-forger:latest
+docker run -d -p 5000:5000 \
+  -v anvil-data:/app/data \
+  -e ANVIL_SECRET_KEY=your-secret \
+  ayibongwe02/anvil-forger:latest
+```
+
+### Deploy from GHCR
+
+```bash
+docker pull ghcr.io/Ayibongwe02/Anvil-Forger:latest
+docker run -d -p 5000:5000 \
+  -v anvil-data:/app/data \
+  -e ANVIL_SECRET_KEY=your-secret \
+  ghcr.io/Ayibongwe02/Anvil-Forger:latest
+```
+
+## Project Structure
+
+```
+.
+├── .github/workflows/               # GitHub Actions workflows
+│   ├── docker-build-push.yml       # Docker Hub build & push
+│   ├── ghcr-build-push.yml         # GHCR build & push
+│   ├── tests.yml                   # Tests & linting
+│   └── deploy-railway.yml          # Railway deployment
+├── src/                             # Source modules
+│   ├── db.py                        # SQLite database
+│   ├── auth.py                      # Authentication & teams
+│   ├── tabular_training.py          # Tabular ML training
+│   ├── image_training.py            # Image classification
+│   ├── export_bundle.py             # Model export
+│   ├── onnx_import.py               # ONNX model import
+│   └── api_serving.py               # REST API blueprint
+├── templates/                       # Flask templates
+├── static/                          # CSS, JavaScript
+├── data/                            # Datasets & models (volume mount)
+├── app.py                           # Flask entry point
+├── Dockerfile                       # Production multi-stage build
+├── docker-compose.yml               # Development compose config
+├── docker-compose.prod.yml          # Production compose config
+├── requirements.txt                 # Python dependencies
+└── .dockerignore                    # Docker build optimization
+```
+
+## Environment Variables
+
+### Development
+
+```bash
+ANVIL_SECRET_KEY=dev-secret-key-change-in-production
+PYTHONUNBUFFERED=1
+PYTHONDONTWRITEBYTECODE=1
+```
+
+### Production
+
+See `.env.production.example`:
+
+```bash
+ANVIL_SECRET_KEY=<strong-random-secret>
+FLASK_ENV=production
+DEBUG=False
+```
+
+## Database
+
+Anvil uses **SQLite** (single-writer constraint) for simplicity. Data persists in `/app/data/` (mounted as a volume).
+
+For multi-server deployments, migrate to PostgreSQL (edit `src/db.py`).
+
+## Security
+
+- ✅ Non-root user (`anvil:anvil`)
+- ✅ Multi-stage Docker build (no build tools in runtime)
+- ✅ Secrets via environment variables (not baked into image)
+- ✅ Health checks for automatic recovery
+- ✅ Resource limits (configurable in compose files)
+
+## Performance
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Image Size | ~924 MB | Includes all ML dependencies |
+| Gunicorn Workers | 1 | SQLite single-writer constraint |
+| Memory Limit | 2 GB (prod) | Adjustable |
+| CPU Limit | 2 cores (prod) | Adjustable |
+| Health Check | 30s interval | Tunable |
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit changes (`git commit -am 'Add feature'`)
+4. Push to branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+All PRs trigger:
+- Linting (flake8)
+- Tests (pytest)
+- Docker build (no push)
+
+Merge to `main` triggers:
+- Build and push to Docker Hub
+- Build and push to GHCR
+- Deploy to Railway (if configured)
+
+## License
+
+MIT
+
+## Support
+
+For issues or questions, open a GitHub issue or check the documentation in this repository.
