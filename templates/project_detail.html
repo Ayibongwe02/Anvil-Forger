@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — Anvil{% endblock %}
+{% block content %}
+<div class="section-header">
+    <div>
+        <span class="eyebrow"><span class="eyebrow-mark">⚒</span> Project</span><br>
+        <span class="tag">{{ 'Tabular' if project.task_kind == 'tabular' else 'Image classification' }}</span>
+        <h1 style="margin-top:8px;">{{ project.name }}</h1>
+        <p class="subtitle">{{ project.description }}</p>
+    </div>
+    <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}"
+          onsubmit="return confirm('Delete this project and all its models? This cannot be undone.');">
+        <button type="submit" class="btn btn-danger btn-sm">Delete project</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header"><h2>Datasets</h2></div>
+
+    <form method="POST" action="{{ url_for('upload_dataset', project_id=project.id) }}" enctype="multipart/form-data">
+        {% if project.task_kind == 'tabular' %}
+        <label>Upload a CSV</label>
+        <input type="file" name="file" accept=".csv" required>
+        <p class="help-text">First row must be headers. One column will be your training target.</p>
+        {% else %}
+        <label>Upload a .zip of labeled images</label>
+        <input type="file" name="file" accept=".zip" required>
+        <p class="help-text">Zip structure: one top-level folder per class, images inside, e.g. <code>defective/img1.jpg</code>, <code>good/img1.jpg</code>.</p>
+        {% endif %}
+        <div class="btn-row"><button type="submit">Upload</button></div>
+    </form>
+
+    {% if datasets %}
+    <hr class="divider">
+    {% for d in datasets %}
+    {% set meta = d.meta_json | from_json %}
+    <details style="margin-bottom: 14px;">
+        <summary style="cursor:pointer; color: var(--text); font-weight:600;">
+            {{ d.name }}
+            {% if project.task_kind == 'tabular' %}
+                <span class="tag tag-muted">{{ meta.row_count }} rows · {{ meta.columns | length }} cols</span>
+            {% else %}
+                <span class="tag tag-muted">{{ meta.image_count }} images · {{ meta.class_counts | length }} classes</span>
+            {% endif %}
+        </summary>
+        <div style="padding: 14px 4px 4px;">
+            {% if project.task_kind == 'tabular' %}
+                <p class="help-text">Columns: {{ meta.columns | join(', ') }}</p>
+            {% else %}
+                <p class="help-text">Classes: {% for cls, count in meta.class_counts.items() %}{{ cls }} ({{ count }}){{ ", " if not loop.last }}{% endfor %}</p>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('train_model', project_id=project.id) }}">
+                <input type="hidden" name="dataset_id" value="{{ d.id }}">
+                <label>Model name</label>
+                <input type="text" name="model_name" placeholder="e.g. Priority Classifier v1">
+
+                {% if project.task_kind == 'tabular' %}
+                <label>Target column (what to predict)</label>
+                <select name="target_column" required>
+                    {% for col in meta.columns %}
+                    <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                <label>Algorithms to try (leave all checked for full AutoML sweep)</label>
+                {% for algo in algo_choices %}
+                <div class="checkbox-row">
+                    <input type="checkbox" name="algorithms" value="{{ algo }}" id="{{ d.id }}-{{ algo }}" checked>
+                    <label for="{{ d.id }}-{{ algo }}">{{ algorithm_labels.get(algo, algo) }}</label>
+                </div>
+                {% endfor %}
+
+                <div class="btn-row">
+                    <button type="submit">🔨 Train model</button>
+                </div>
+            </form>
+        </div>
+    </details>
+    {% endfor %}
+    {% else %}
+    <p class="help-text">No datasets uploaded yet.</p>
+    {% endif %}
+</div>
+
+{% if project.task_kind == 'tabular' %}
+<div class="card">
+    <div class="section-header"><h2>Bring your own model</h2></div>
+    <p class="help-text">
+        Already trained something outside Anvil? Import it as an <strong>ONNX</strong> file rather
+        than a pickle — Anvil only ever evaluates the numeric ops in an ONNX graph, so importing one
+        can't run arbitrary code the way loading an uploaded pickle/joblib file could. If your model
+        is currently a pickle, convert it to ONNX first (e.g. with <code>skl2onnx</code> for
+        scikit-learn, or your framework's ONNX exporter) and upload the resulting <code>.onnx</code> file.
+    </p>
+    <form method="POST" action="{{ url_for('import_model', project_id=project.id) }}" enctype="multipart/form-data">
+        <label>Model file (.onnx)</label>
+        <input type="file" name="onnx_file" accept=".onnx" required>
+
+        <label>Model name</label>
+        <input type="text" name="model_name" placeholder="e.g. Legacy Fraud Model v3">
+
+        <label>Task type</label>
+        <select name="task_type" required>
+            {% for key, label in import_task_types.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Feature columns, in the exact order your model expects (comma-separated)</label>
+        <input type="text" name="feature_columns" placeholder="age, income, region" required>
+
+        <label>Class names, in the order your model outputs them (classification only)</label>
+        <input type="text" name="class_names" placeholder="rejected, approved">
+
+        <div class="btn-row"><button type="submit">📥 Import ONNX model</button></div>
+    </form>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="section-header"><h2>Models</h2></div>
+    {% if models %}
+    <table>
+        <tr><th>Name</th><th>Algorithm</th><th>Task</th><th>Score</th><th>Status</th><th></th></tr>
+        {% for m in models %}
+        {% set metrics = m.metrics_json | from_json %}
+        <tr>
+            <td>
+                <a href="{{ url_for('model_detail', model_id=m.id) }}">{{ m.name }}</a>
+                {% if m.source == 'imported_onnx' %}<span class="tag tag-muted">imported ONNX</span>{% endif %}
+            </td>
+            <td>{{ 'Imported' if m.source == 'imported_onnx' else algorithm_labels.get(m.algorithm, m.algorithm) }}</td>
+            <td>{{ m.task_type }}</td>
+            <td class="mono">
+                {% if m.source == 'imported_onnx' %}—
+                {% elif m.task_type == 'classification' %}{{ "%.1f%%" | format(metrics.accuracy * 100) }}
+                {% else %}R² {{ "%.3f" | format(metrics.r2) }}{% endif %}
+            </td>
+            <td><span class="tag {{ 'tag-good' if m.status == 'ready' else 'tag-bad' }}">{{ m.status }}</span></td>
+            <td><a href="{{ url_for('model_detail', model_id=m.id) }}" class="btn btn-sm btn-secondary">View</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p class="help-text">No models trained yet — upload a dataset above, then train one.</p>
+    {% endif %}
+</div>
+{% endblock %}

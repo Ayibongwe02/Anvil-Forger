@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Log in — Anvil{% endblock %}
+{% block content %}
+<div class="auth-page">
+    <div class="auth-splash">
+        <span class="auth-splash-mark">⚒</span>
+        <h1 class="auth-splash-title">Anvil</h1>
+        <p class="subtitle">Train ML models as a team. Export them anywhere.</p>
+    </div>
+    <div class="card">
+        <span class="eyebrow"><span class="eyebrow-mark">⚒</span> Sign in</span>
+        <form method="POST">
+            <label>Email</label>
+            <input type="email" name="email" required autofocus>
+            <label>Password</label>
+            <input type="password" name="password" required>
+            <div class="btn-row">
+                <button type="submit">Log in</button>
+            </div>
+        </form>
+    </div>
+    <p style="text-align:center; font-size: 13px;">
+        New team? <a href="{{ url_for('signup_team') }}">Create one</a> ·
+        Have an invite code? <a href="{{ url_for('signup_join') }}">Join a team</a>
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,159 @@
+<div id="anvil-tour-overlay" class="tour-overlay" hidden>
+    <div id="anvil-tour-spotlight" class="tour-spotlight"></div>
+    <div id="anvil-tour-card" class="tour-card">
+        <div class="tour-step-count" id="anvil-tour-count"></div>
+        <h4 id="anvil-tour-title"></h4>
+        <p id="anvil-tour-text"></p>
+        <div class="tour-card-actions">
+            <button type="button" class="tour-skip" id="anvil-tour-skip">Skip tour</button>
+            <div class="tour-nav">
+                <button type="button" class="btn btn-secondary btn-sm" id="anvil-tour-back">Back</button>
+                <button type="button" class="btn btn-sm" id="anvil-tour-next">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var ANVIL_TOUR_KEY = "anvil_tour_seen";
+
+    var steps = [
+        {
+            selector: ".brand",
+            title: "Welcome to Anvil",
+            text: "This is your team's shared workspace for training and shipping ML models. Let's take a quick look around."
+        },
+        {
+            selector: ".team-name",
+            title: "Your team",
+            text: "Everything you build here is shared with your whole team — datasets, models, and API keys."
+        },
+        {
+            selector: "[data-tour='new-project']",
+            title: "Start a project",
+            text: "Create a project to upload a dataset and train models — tabular data or image classification."
+        },
+        {
+            selector: "[data-tour='project-card']",
+            title: "Your projects",
+            text: "Open a project to upload data, kick off training, and compare models on a leaderboard."
+        },
+        {
+            selector: "[data-tour='api-keys']",
+            title: "API Keys",
+            text: "Once a model is trained, grab an API key here to serve predictions from your own apps."
+        }
+    ];
+
+    var current = 0;
+    var activeSteps = [];
+    var overlay, spotlight, card, titleEl, textEl, countEl, backBtn, nextBtn, skipBtn;
+
+    function bindEls() {
+        overlay = document.getElementById("anvil-tour-overlay");
+        spotlight = document.getElementById("anvil-tour-spotlight");
+        card = document.getElementById("anvil-tour-card");
+        titleEl = document.getElementById("anvil-tour-title");
+        textEl = document.getElementById("anvil-tour-text");
+        countEl = document.getElementById("anvil-tour-count");
+        backBtn = document.getElementById("anvil-tour-back");
+        nextBtn = document.getElementById("anvil-tour-next");
+        skipBtn = document.getElementById("anvil-tour-skip");
+    }
+
+    function positionFor(step) {
+        var el = document.querySelector(step.selector);
+        if (!el) return null;
+        var r = el.getBoundingClientRect();
+        return {
+            top: r.top + window.scrollY,
+            left: r.left + window.scrollX,
+            width: r.width,
+            height: r.height
+        };
+    }
+
+    function render() {
+        var step = activeSteps[current];
+        var pos = positionFor(step);
+        if (!pos) { next(); return; }
+
+        var pad = 8;
+        spotlight.style.top = (pos.top - pad) + "px";
+        spotlight.style.left = (pos.left - pad) + "px";
+        spotlight.style.width = (pos.width + pad * 2) + "px";
+        spotlight.style.height = (pos.height + pad * 2) + "px";
+
+        titleEl.textContent = step.title;
+        textEl.textContent = step.text;
+        countEl.textContent = "Step " + (current + 1) + " of " + activeSteps.length;
+        backBtn.style.visibility = current === 0 ? "hidden" : "visible";
+        nextBtn.textContent = current === activeSteps.length - 1 ? "Done" : "Next";
+
+        var cardTop = pos.top + pos.height + pad + 14;
+        var cardLeft = Math.min(pos.left, window.innerWidth - 340);
+        if (cardTop + 160 > window.scrollY + window.innerHeight) {
+            cardTop = Math.max(pos.top - 190, window.scrollY + 16);
+        }
+        card.style.top = cardTop + "px";
+        card.style.left = Math.max(cardLeft, 16) + "px";
+
+        el_scrollIntoView(step.selector);
+    }
+
+    function el_scrollIntoView(selector) {
+        var el = document.querySelector(selector);
+        if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+
+    function next() {
+        if (current >= activeSteps.length - 1) { finish(); return; }
+        current += 1;
+        render();
+    }
+
+    function back() {
+        if (current === 0) return;
+        current -= 1;
+        render();
+    }
+
+    function finish() {
+        overlay.hidden = true;
+        try { localStorage.setItem(ANVIL_TOUR_KEY, "1"); } catch (e) {}
+    }
+
+    function start() {
+        bindEls();
+        activeSteps = steps.filter(function (s) { return document.querySelector(s.selector); });
+        if (activeSteps.length === 0) return;
+        current = 0;
+        overlay.hidden = false;
+        render();
+        skipBtn.onclick = finish;
+        nextBtn.onclick = next;
+        backBtn.onclick = back;
+        window.addEventListener("resize", function () { if (!overlay.hidden) render(); });
+    }
+
+    window.anvilStartTour = start;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search);
+        var forced = params.get("tour") === "replay";
+        var seen = false;
+        try { seen = localStorage.getItem(ANVIL_TOUR_KEY) === "1"; } catch (e) {}
+
+        if (forced || !seen) {
+            setTimeout(start, forced ? 250 : 600);
+        }
+
+        if (forced) {
+            params.delete("tour");
+            var newUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+            window.history.replaceState({}, "", newUrl);
+        }
+    });
+})();
+</script>

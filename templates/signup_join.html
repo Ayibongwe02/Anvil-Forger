@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Join a team — Anvil{% endblock %}
+{% block content %}
+<div class="auth-page">
+    <div class="auth-splash">
+        <span class="auth-splash-mark">⚒</span>
+        <h1 class="auth-splash-title">Join a team</h1>
+        <p class="subtitle">Ask your team admin for the invite code from their dashboard.</p>
+    </div>
+    <div class="card">
+        <span class="eyebrow"><span class="eyebrow-mark">⚒</span> Join the forge</span>
+        <form method="POST">
+            <label>Invite code</label>
+            <input type="text" name="invite_code" required autofocus placeholder="ABCD1234" style="text-transform:uppercase;">
+            <label>Your name</label>
+            <input type="text" name="display_name" required>
+            <label>Email</label>
+            <input type="email" name="email" required>
+            <label>Password</label>
+            <input type="password" name="password" required minlength="8">
+            <div class="btn-row">
+                <button type="submit">Join team</button>
+            </div>
+        </form>
+    </div>
+    <p style="text-align:center; font-size: 13px;">
+        <a href="{{ url_for('login') }}">Log in</a> · <a href="{{ url_for('signup_team') }}">Create a new team instead</a>
+    </p>
+</div>
+{% endblock %}
