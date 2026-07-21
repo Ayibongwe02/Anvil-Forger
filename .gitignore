@@ -1,0 +1,7 @@
+data/*.db
+data/datasets/*
+data/models/*
+!data/datasets/.gitkeep
+!data/models/.gitkeep
+__pycache__/
+*.pyc
