@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Create your team — Anvil{% endblock %}
+{% block content %}
+<div class="auth-page">
+    <h1>⚒ New team</h1>
+    <p class="subtitle">You'll be the admin and get an invite code to bring your team in.</p>
+    <div class="card">
+        <form method="POST">
+            <label>Team name</label>
+            <input type="text" name="team_name" required autofocus placeholder="Growth Analytics">
+            <label>Your name</label>
+            <input type="text" name="display_name" required>
+            <label>Email</label>
+            <input type="email" name="email" required>
+            <label>Password</label>
+            <input type="password" name="password" required minlength="8">
+            <div class="btn-row">
+                <button type="submit">Create team</button>
+            </div>
+        </form>
+    </div>
+    <p style="text-align:center; font-size: 13px;">
+        Already have a team? <a href="{{ url_for('login') }}">Log in</a> ·
+        Have an invite code? <a href="{{ url_for('signup_join') }}">Join instead</a>
+    </p>
+</div>
+{% endblock %}

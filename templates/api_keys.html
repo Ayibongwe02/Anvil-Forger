@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}API Keys — Anvil{% endblock %}
+{% block content %}
+<h1>Team settings</h1>
+
+<div class="card">
+    <h2>Invite code</h2>
+    <p>Share this with teammates so they can join <strong>{{ team.name }}</strong>.</p>
+    <pre>{{ team.invite_code }}</pre>
+</div>
+
+<div class="card">
+    <h2>Team members</h2>
+    <table>
+        <tr><th>Name</th><th>Email</th><th>Role</th></tr>
+        {% for m in members %}
+        <tr><td>{{ m.display_name }}</td><td class="mono">{{ m.email }}</td><td><span class="tag tag-muted">{{ m.role }}</span></td></tr>
+        {% endfor %}
+    </table>
+</div>
+
+<div class="card">
+    <h2>API keys</h2>
+    <p>Used to authenticate requests to <code>/api/v1/predict/&lt;model_id&gt;</code> for any model in this team.</p>
+    <form method="POST">
+        <label>Label</label>
+        <input type="text" name="label" placeholder="e.g. Production dashboard">
+        <div class="btn-row"><button type="submit">+ Generate new key</button></div>
+    </form>
+
+    <hr class="divider">
+    {% if keys %}
+    <table>
+        <tr><th>Label</th><th>Key</th><th>Created</th><th>Status</th><th></th></tr>
+        {% for k in keys %}
+        <tr>
+            <td>{{ k.label }}</td>
+            <td class="mono">{{ k.key_value[:14] }}…</td>
+            <td class="mono">{{ k.created_at[:10] }}</td>
+            <td>
+                {% if k.revoked %}<span class="tag tag-bad">revoked</span>{% else %}<span class="tag tag-good">active</span>{% endif %}
+            </td>
+            <td>
+                {% if not k.revoked %}
+                <form method="POST" action="{{ url_for('revoke_key', key_id=k.id) }}" onsubmit="return confirm('Revoke this key?');">
+                    <button type="submit" class="btn btn-sm btn-danger">Revoke</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p class="help-text">No API keys yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

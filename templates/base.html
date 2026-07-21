@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Anvil{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% if current_user %}
+    <nav class="topbar">
+        <a class="brand" href="{{ url_for('dashboard') }}">
+            <span class="brand-mark">⚒</span> Anvil
+        </a>
+        <div class="topbar-right">
+            <span class="team-name">{{ current_team.name if current_team else '' }}</span>
+            <a href="{{ url_for('api_keys') }}" class="nav-link">API Keys</a>
+            <span class="nav-user">{{ current_user.display_name }}</span>
+            <a href="{{ url_for('logout') }}" class="nav-link nav-logout">Log out</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="page">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-stack">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

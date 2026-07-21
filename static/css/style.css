@@ -1,0 +1,240 @@
+:root {
+    --bg: #0B0D10;
+    --panel: #12151A;
+    --card: #171B21;
+    --card-hover: #1D222A;
+    --border: #262B33;
+    --text: #E8EAED;
+    --muted: #8B94A3;
+    --accent: #FF7A29;
+    --accent-hot: #FF3D3D;
+    --accent-soft: rgba(255, 122, 41, 0.14);
+    --good: #2ED47A;
+    --warn: #F5A524;
+    --bad: #F5426C;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.5;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------------- Top bar ---------------- */
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    font-size: 19px;
+    color: var(--text);
+}
+.brand-mark {
+    color: var(--accent);
+    font-size: 20px;
+}
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+.team-name { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+.nav-link { color: var(--muted); font-size: 14px; }
+.nav-link:hover { color: var(--text); text-decoration: none; }
+.nav-user { color: var(--text); font-size: 14px; font-weight: 600; }
+.nav-logout { color: var(--accent-hot); }
+
+/* ---------------- Layout ---------------- */
+.page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+}
+.auth-page {
+    max-width: 420px;
+    margin: 80px auto;
+    padding: 0 20px;
+}
+
+h1, h2, h3, h4 { color: var(--text); margin: 0 0 8px 0; }
+h1 { font-size: 28px; font-weight: 800; }
+h2 { font-size: 20px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 700; }
+p { color: var(--muted); margin: 0 0 12px 0; }
+.subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+/* ---------------- Flash messages ---------------- */
+.flash-stack { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
+.flash {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    border-left: 3px solid var(--muted);
+    background: var(--card);
+}
+.flash-success { border-color: var(--good); color: var(--good); }
+.flash-error { border-color: var(--bad); color: var(--bad); }
+
+/* ---------------- Cards ---------------- */
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+}
+.card-hover:hover { background: var(--card-hover); cursor: pointer; }
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+.tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+.tag-muted { background: rgba(139,148,163,0.14); color: var(--muted); }
+.tag-good { background: rgba(46,212,122,0.14); color: var(--good); }
+.tag-bad { background: rgba(245,66,108,0.14); color: var(--bad); }
+
+/* ---------------- Forms ---------------- */
+label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+label:first-child { margin-top: 0; }
+input[type=text], input[type=email], input[type=password], input[type=number],
+select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--sans);
+}
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+input[type=file] { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.checkbox-row input { width: auto; }
+.checkbox-row label { margin: 0; color: var(--text); font-weight: 400; }
+.help-text { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ---------------- Buttons ---------------- */
+button, .btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #0B0D10;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: none;
+}
+button:hover, .btn:hover { opacity: 0.88; text-decoration: none; }
+.btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+/* ---------------- Tables ---------------- */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+td { color: var(--text); }
+tr:last-child td { border-bottom: none; }
+.mono { font-family: var(--mono); font-size: 12px; }
+
+/* ---------------- Metrics ---------------- */
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+}
+.metric-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+.metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.metric-value { font-size: 24px; font-weight: 800; color: var(--accent); margin-top: 4px; }
+
+/* ---------------- Leaderboard bars ---------------- */
+.lb-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.lb-rank { width: 22px; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.lb-label { width: 180px; font-size: 13px; color: var(--text); }
+.lb-bar-track { flex: 1; height: 10px; background: var(--panel); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+.lb-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hot)); }
+.lb-score { width: 70px; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.lb-winner .lb-label { color: var(--accent); font-weight: 700; }
+
+/* ---------------- Confusion matrix ---------------- */
+.cm-table { border-collapse: collapse; font-size: 12px; }
+.cm-table td, .cm-table th { border: 1px solid var(--border); padding: 8px 10px; text-align: center; }
+.cm-diag { font-weight: 700; color: var(--accent); }
+
+/* ---------------- Export cards ---------------- */
+.export-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
+.export-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.export-card h4 { margin-bottom: 6px; color: var(--text); font-size: 14px; }
+.export-card p { font-size: 12px; margin-bottom: 12px; }
+.export-card.disabled { opacity: 0.5; }
+
+/* ---------------- Try-it panel ---------------- */
+#try-result {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 13px;
+    white-space: pre-wrap;
+    display: none;
+}
+#try-result.show { display: block; }
+#try-result.result-good { border-color: var(--good); }
+
+/* ---------------- Code blocks ---------------- */
+pre {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+}
+code { font-family: var(--mono); background: var(--panel); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-state h3 { color: var(--text); margin-bottom: 8px; }
+
+.divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }

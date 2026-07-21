@@ -1,0 +1,27 @@
+version: '3.9'
+
+# Optional nginx reverse proxy for TLS termination (production)
+# Uncomment and configure to use alongside docker-compose.prod.yml
+
+services:
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: anvil-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./certs:/etc/nginx/certs:ro
+  #   depends_on:
+  #     - anvil
+  #   restart: always
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "http://localhost/"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+# Usage:
+# docker-compose -f docker-compose.prod.yml \
+#   -f docker-compose.override.yml up -d
