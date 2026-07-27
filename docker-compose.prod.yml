@@ -1,0 +1,72 @@
+# Anvil v2 Production Docker Compose
+# Full production setup with resource limits, security, logging, and volume management
+version: '3.9'
+
+services:
+  anvil:
+    image: anvil-v2:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anvil-v2-prod
+    
+    # Port binding
+    ports:
+      - "5000:5000"
+    
+    # Volume mounts for data persistence
+    volumes:
+      - anvil-data:/app/data
+      - anvil-logs:/var/log/anvil
+    
+    # Environment variables (use .env file for secrets)
+    env_file:
+      - .env.production
+    environment:
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Restart policy
+    restart: always
+    
+    # Resource limits (SQLite + web service)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=anvil"
+    
+    # Security
+    read_only_root_filesystem: false  # Flask needs to write to /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  anvil-data:
+    driver: local
+  anvil-logs:
+    driver: local

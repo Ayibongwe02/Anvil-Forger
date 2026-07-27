@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}{{ model.name }} — Anvil{% endblock %}
+{% block content %}
+<div class="section-header">
+    <div>
+        <span class="eyebrow"><span class="eyebrow-mark">⚒</span> Model</span><br>
+        <span class="tag">{{ 'Imported ONNX' if is_imported else algorithm_labels.get(model.algorithm, model.algorithm) }}</span>
+        <span class="tag tag-muted">{{ model.task_type }}</span>
+        <h1 style="margin-top:8px;">{{ model.name }}</h1>
+        <p class="subtitle"><a href="{{ url_for('project_detail', project_id=project.id) }}">← {{ project.name }}</a></p>
+    </div>
+    <form method="POST" action="{{ url_for('delete_model', model_id=model.id) }}"
+          onsubmit="return confirm('Delete this model? This cannot be undone.');">
+        <button type="submit" class="btn btn-danger btn-sm">Delete model</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Performance</h2>
+    {% if is_imported %}
+    <p class="help-text">
+        This model was imported as ONNX rather than trained in Anvil, so Anvil has no leaderboard,
+        cross-validation scores, or confusion matrix for it — those only exist for models trained here.
+    </p>
+    {% else %}
+    <div class="metric-grid">
+        {% if model.task_type == 'classification' %}
+        <div class="metric-box"><div class="metric-label">Accuracy</div><div class="metric-value">{{ "%.1f%%" | format(metrics.accuracy * 100) }}</div></div>
+        <div class="metric-box"><div class="metric-label">F1 (weighted)</div><div class="metric-value">{{ "%.3f" | format(metrics.f1_weighted) }}</div></div>
+        <div class="metric-box"><div class="metric-label">Precision</div><div class="metric-value">{{ "%.3f" | format(metrics.precision_weighted) }}</div></div>
+        <div class="metric-box"><div class="metric-label">Recall</div><div class="metric-value">{{ "%.3f" | format(metrics.recall_weighted) }}</div></div>
+        {% else %}
+        <div class="metric-box"><div class="metric-label">R²</div><div class="metric-value">{{ "%.3f" | format(metrics.r2) }}</div></div>
+        <div class="metric-box"><div class="metric-label">MAE</div><div class="metric-value">{{ "%.3f" | format(metrics.mae) }}</div></div>
+        <div class="metric-box"><div class="metric-label">RMSE</div><div class="metric-value">{{ "%.3f" | format(metrics.rmse) }}</div></div>
+        {% endif %}
+        <div class="metric-box"><div class="metric-label">Test set size</div><div class="metric-value">{{ metrics.test_size }}</div></div>
+    </div>
+
+    <h3>Leaderboard</h3>
+    <p class="help-text">Cross-validation score across every algorithm Anvil tried on this dataset.</p>
+    {% set max_score = leaderboard | selectattr('cv_score_mean', 'defined') | map(attribute='cv_score_mean') | select('number') | list %}
+    {% set top_score = (max_score | max) if max_score else 1 %}
+    {% for row in leaderboard %}
+    <div class="lb-row {{ 'lb-winner' if row.algorithm == model.algorithm }}">
+        <div class="lb-rank">{{ loop.index }}</div>
+        <div class="lb-label">{{ row.label }}{{ ' 🏆' if row.algorithm == model.algorithm }}</div>
+        <div class="lb-bar-track">
+            {% if row.cv_score_mean is not none %}
+            <div class="lb-bar-fill" style="width: {{ ((row.cv_score_mean / top_score) * 100) if top_score else 0 }}%;"></div>
+            {% endif %}
+        </div>
+        <div class="lb-score">{{ "%.3f" | format(row.cv_score_mean) if row.cv_score_mean is not none else "failed" }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if not is_imported and model.task_type == 'classification' and metrics.confusion_matrix %}
+    <h3 style="margin-top:22px;">Confusion matrix</h3>
+    <table class="cm-table">
+        <tr><th></th>{% for label in metrics.confusion_matrix_labels %}<th>pred: {{ label }}</th>{% endfor %}</tr>
+        {% for row in metrics.confusion_matrix %}
+        {% set outer_idx = loop.index0 %}
+        <tr>
+            <th>true: {{ metrics.confusion_matrix_labels[outer_idx] }}</th>
+            {% for val in row %}
+            <td class="{{ 'cm-diag' if loop.index0 == outer_idx }}">{{ val }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if metrics.feature_importance %}
+    <h3 style="margin-top:22px;">Feature importance</h3>
+    {% set top_imp = metrics.feature_importance[0].importance %}
+    {% for f in metrics.feature_importance %}
+    <div class="lb-row">
+        <div class="lb-label" style="width:220px;">{{ f.feature }}</div>
+        <div class="lb-bar-track"><div class="lb-bar-fill" style="width: {{ (f.importance / top_imp * 100) if top_imp else 0 }}%;"></div></div>
+        <div class="lb-score">{{ "%.3f" | format(f.importance) }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Export</h2>
+    {% if is_imported %}
+    <p>This model was imported as ONNX — it's already the portable, dependency-free format.</p>
+    <div class="export-grid">
+        <div class="export-card">
+            <h4>🧠 ONNX file</h4>
+            <p>The exact file you uploaded. Runs with onnxruntime (or any ONNX-compatible runtime) in any language.</p>
+            <a href="{{ url_for('export_onnx', model_id=model.id) }}" class="btn btn-sm">Download .onnx</a>
+        </div>
+        <div class="export-card">
+            <h4>🔌 Hosted API</h4>
+            <p>Live prediction endpoint, served by this Anvil instance. No download needed.</p>
+            <a href="{{ url_for('api_keys') }}" class="btn btn-sm btn-secondary">Get an API key</a>
+        </div>
+    </div>
+    {% else %}
+    <p>Three ways to get this model out of Anvil and into whatever you're building next.</p>
+    <div class="export-grid">
+        <div class="export-card">
+            <h4>📦 Pickle bundle</h4>
+            <p>scikit-learn pipeline + loader script. Best if your app is already Python.</p>
+            <a href="{{ url_for('export_pickle', model_id=model.id) }}" class="btn btn-sm">Download .zip</a>
+        </div>
+        <div class="export-card {{ '' if universal_available else 'disabled' }}">
+            <h4>🌍 Universal export</h4>
+            <p>model.json + zero-dependency Python/JS inference code. Drop into any app, any language.</p>
+            {% if universal_available %}
+            <a href="{{ url_for('export_universal_route', model_id=model.id) }}" class="btn btn-sm">Download .zip</a>
+            {% else %}
+            <span class="help-text">Not available for {{ algorithm_labels.get(model.algorithm, model.algorithm) }} — use pickle or the API instead.</span>
+            {% endif %}
+        </div>
+        <div class="export-card">
+            <h4>🔌 Hosted API</h4>
+            <p>Live prediction endpoint, served by this Anvil instance. No download needed.</p>
+            <a href="{{ url_for('api_keys') }}" class="btn btn-sm btn-secondary">Get an API key</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <h3 style="margin-top:22px;">API usage</h3>
+    {% if project.task_kind == 'tabular' %}
+    <pre>curl -X POST {{ request.host_url }}api/v1/predict/{{ model.id }} \
+  -H "X-API-Key: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{{ '{' }}{% for c in feature_columns %}"{{ c }}": ...{{ ", " if not loop.last }}{% endfor %}{{ '}' }}'</pre>
+    {% else %}
+    <pre>curl -X POST {{ request.host_url }}api/v1/predict/{{ model.id }} \
+  -H "X-API-Key: YOUR_KEY" \
+  -F "image=@photo.jpg"</pre>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Try it</h2>
+    <p>Test a prediction right here before you export or share the endpoint.</p>
+    <form id="try-form">
+        {% if project.task_kind == 'tabular' %}
+            {% for c in feature_columns %}
+            <label>{{ c }}</label>
+            <input type="text" name="{{ c }}" placeholder="value for {{ c }}">
+            {% endfor %}
+        {% else %}
+            <label>Upload an image</label>
+            <input type="file" name="image" accept="image/*" required>
+        {% endif %}
+        <div class="btn-row"><button type="submit">Predict</button></div>
+    </form>
+    <div id="try-result"></div>
+</div>
+
+{% if recent %}
+<div class="card">
+    <h2>Recent API predictions</h2>
+    <table>
+        <tr><th>When</th><th>Input</th><th>Output</th></tr>
+        {% for r in recent %}
+        <tr>
+            <td class="mono">{{ r.created_at[:19] }}</td>
+            <td class="mono">{{ r.input_json[:80] }}</td>
+            <td class="mono">{{ r.output_json[:80] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById("try-form");
+const resultBox = document.getElementById("try-result");
+const isImage = {{ 'true' if project.task_kind == 'image' else 'false' }};
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    resultBox.classList.remove("show", "result-good");
+    resultBox.textContent = "Running prediction...";
+    resultBox.classList.add("show");
+
+    const formData = new FormData(form);
+    try {
+        const res = await fetch("{{ url_for('try_model', model_id=model.id) }}", {
+            method: "POST",
+            body: formData,
+        });
+        const data = await res.json();
+        if (res.ok) {
+            resultBox.classList.add("result-good");
+        }
+        resultBox.textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+        resultBox.textContent = "Request failed: " + err;
+    }
+});
+</script>
+{% endblock %}

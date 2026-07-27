@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}New project — Anvil{% endblock %}
+{% block content %}
+<h1>New project</h1>
+<p class="subtitle">A project holds one dataset type, its uploads, and every model trained on it.</p>
+<div class="card" style="max-width: 520px;">
+    <form method="POST">
+        <label>Project name</label>
+        <input type="text" name="name" required autofocus placeholder="Support Ticket Priority">
+        <label>Description (optional)</label>
+        <textarea name="description" rows="3" placeholder="What is this model for?"></textarea>
+        <label>Task type</label>
+        <select name="task_kind">
+            {% for key, label in task_kinds.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+        <p class="help-text">Tabular = CSV data, predicts a column. Image = photos sorted into class folders.</p>
+        <div class="btn-row">
+            <button type="submit">Create project</button>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
