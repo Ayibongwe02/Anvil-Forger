@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Anvil{% endblock %}
+{% block content %}
+<div class="page-hero">
+    <div class="section-header">
+        <div>
+            <span class="eyebrow"><span class="eyebrow-mark">⚒</span> Workspace</span>
+            <h1>Projects</h1>
+            <p class="subtitle">{{ current_team.name }}'s shared model workspace.</p>
+        </div>
+        <a href="{{ url_for('new_project') }}" class="btn btn-primary" data-tour="new-project">
+            <span>⚒</span> New project
+        </a>
+    </div>
+</div>
+
+{% if projects %}
+<div class="card-grid">
+    {% for p in projects %}
+    <a href="{{ url_for('project_detail', project_id=p.id) }}" style="text-decoration:none;" {% if loop.first %}data-tour="project-card"{% endif %}>
+        <div class="card card-hover">
+            <span class="tag">{{ task_kinds[p.task_kind] }}</span>
+            <h3 style="margin-top:10px;">{{ p.name }}</h3>
+            <p>{{ p.description or "No description yet." }}</p>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card panel-accent">
+    <div class="panel-banner">
+        <span class="panel-banner-icon" aria-hidden="true">⚒</span>
+        <div>
+            <strong>No projects yet</strong>
+            <p>Create your first project to upload a dataset and train a model. Pick tabular (CSV) or image classification.</p>
+        </div>
+    </div>
+    <div class="btn-row">
+        <a href="{{ url_for('new_project') }}" class="btn btn-primary"><span>⚒</span> New project</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

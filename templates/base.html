@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% block title %}Anvil{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% if current_user %}
+    <nav class="topbar">
+        <a class="brand" href="{{ url_for('dashboard') }}">
+            <span class="brand-mark">⚒</span> Anvil
+        </a>
+        <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="topbar-menu">Menu</button>
+        <div class="topbar-right" id="topbar-menu">
+            <span class="team-name">{{ current_team.name if current_team else '' }}</span>
+            <a href="{{ url_for('api_keys') }}" class="nav-link" data-tour="api-keys">API Keys</a>
+            <a href="{{ url_for('change_password') }}" class="nav-link">Password</a>
+            <a href="{{ url_for('dashboard') }}?tour=replay" class="nav-link">Replay tour</a>
+            <span class="nav-user">{{ current_user.display_name }}</span>
+            <a href="{{ url_for('logout') }}" class="nav-link nav-logout">Log out</a>
+        </div>
+    </nav>
+    {% include "partials/onboarding.html" %}
+    {% endif %}
+
+    <main class="page">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-stack">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+
+    {# Shared forge-style loading overlay (navigation, uploads, training, etc.) #}
+    <div class="global-loading-overlay" id="global-loading-overlay" aria-live="polite" aria-busy="false" hidden>
+        <div class="training-forge" aria-hidden="true">
+            <div class="training-forge-ring"></div>
+            <div class="training-forge-mark">⚒</div>
+        </div>
+        <h3 id="global-loading-title">Working…</h3>
+        <p id="global-loading-text">Please wait a moment.</p>
+        <p class="training-dots"><span></span><span></span><span></span></p>
+    </div>
+
+    {% block scripts %}{% endblock %}
+    <script>
+    (function () {
+        var overlay = document.getElementById('global-loading-overlay');
+        var titleEl = document.getElementById('global-loading-title');
+        var textEl = document.getElementById('global-loading-text');
+        if (!overlay) return;
+
+        function showLoading(title, text) {
+            if (titleEl) titleEl.textContent = title || 'Working…';
+            if (textEl) textEl.textContent = text || 'Please wait a moment.';
+            overlay.hidden = false;
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-busy', 'true');
+            var bar = document.getElementById('sticky-train-bar');
+            if (bar) bar.classList.add('is-hidden');
+        }
+
+        function hideLoading() {
+            overlay.classList.remove('active');
+            overlay.hidden = true;
+            overlay.setAttribute('aria-busy', 'false');
+        }
+
+        window.AnvilLoading = { show: showLoading, hide: hideLoading };
+
+        function messageForForm(form) {
+            var action = (form.getAttribute('action') || '').toLowerCase();
+            var isTrain = form.classList.contains('train-form') || action.indexOf('/train') !== -1;
+            if (isTrain) {
+                return {
+                    title: 'Forging your model…',
+                    text: 'Training and evaluating algorithms. This can take a few seconds to a couple of minutes.'
+                };
+            }
+            if (action.indexOf('/datasets/upload') !== -1 || (form.enctype || '').indexOf('multipart') !== -1) {
+                var fileInput = form.querySelector('input[type="file"]');
+                if (fileInput) {
+                    return {
+                        title: 'Uploading…',
+                        text: 'Sending your dataset to Anvil. Large files may take a moment.'
+                    };
+                }
+            }
+            if (action.indexOf('/models/import') !== -1 || form.querySelector('input[name="onnx_file"]')) {
+                return {
+                    title: 'Importing model…',
+                    text: 'Validating and loading your ONNX model.'
+                };
+            }
+            if (action.indexOf('delete') !== -1) {
+                return { title: 'Removing…', text: 'Cleaning up.' };
+            }
+            if (action.indexOf('password') !== -1 || form.querySelector('input[type="password"]')) {
+                return { title: 'Saving…', text: 'Updating your credentials.' };
+            }
+            return { title: 'Working…', text: 'Please wait a moment.' };
+        }
+
+        // Forms: show overlay on real navigational submits (skip AJAX try-it)
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!form || form.tagName !== 'FORM') return;
+            if (form.id === 'try-form' || form.getAttribute('data-no-loading') === '1') return;
+            if (e.defaultPrevented) return;
+            var msg = messageForForm(form);
+            showLoading(msg.title, msg.text);
+            var btn = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                if (form.classList.contains('train-form') && btn.classList.contains('btn-train')) {
+                    btn.innerHTML = '<span class="btn-train-icon">⚒</span> Training…';
+                }
+            }
+        }, true);
+
+        // In-app navigation links (same origin, not new tab / hash / download)
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest && e.target.closest('a[href]');
+            if (!a) return;
+            if (e.defaultPrevented || e.button !== 0) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if (a.target === '_blank' || a.hasAttribute('download')) return;
+            if (a.getAttribute('data-no-loading') === '1') return;
+            var href = a.getAttribute('href');
+            if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return;
+            try {
+                var url = new URL(href, window.location.href);
+                if (url.origin !== window.location.origin) return;
+                // same-page hash only
+                if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return;
+            } catch (err) {
+                return;
+            }
+            showLoading('Loading…', 'Switching pages.');
+        }, true);
+
+        // Hide if user returns via back-forward cache
+        window.addEventListener('pageshow', function (ev) {
+            if (ev.persisted) hideLoading();
+        });
+        window.addEventListener('pagehide', function () { /* leave overlay up during unload */ });
+
+        // Mobile nav toggle
+        var btn = document.getElementById('nav-toggle');
+        var menu = document.getElementById('topbar-menu');
+        if (btn && menu) {
+            btn.addEventListener('click', function () {
+                var open = menu.classList.toggle('is-open');
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                btn.textContent = open ? 'Close' : 'Menu';
+            });
+        }
+    })();
+    </script>
+</body>
+</html>

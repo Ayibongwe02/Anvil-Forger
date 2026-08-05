@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}New project — Anvil{% endblock %}
+{% block content %}
+<div class="page-hero">
+    <span class="eyebrow"><span class="eyebrow-mark">⚒</span> Create</span>
+    <h1>New project</h1>
+    <p class="subtitle">A project holds one dataset type, its uploads, and every model trained on it.</p>
+</div>
+
+<div class="card panel-accent">
+    <div class="panel-banner">
+        <span class="panel-banner-icon" aria-hidden="true">⚒</span>
+        <div>
+            <strong>Set up the forge</strong>
+            <p>Name the project and choose tabular (CSV) or image classification. You can upload data on the next screen.</p>
+        </div>
+    </div>
+    <form method="POST">
+        <label for="name">Project name</label>
+        <input id="name" type="text" name="name" required autofocus placeholder="e.g. Churn risk">
+        <label for="description">Description (optional)</label>
+        <textarea id="description" name="description" rows="2" placeholder="What is this project for?"></textarea>
+        <label>Task type</label>
+        {% for key, label in task_kinds.items() %}
+        <div class="checkbox-row">
+            <input type="radio" name="task_kind" value="{{ key }}" id="task-{{ key }}" {% if loop.first %}checked{% endif %} required>
+            <label for="task-{{ key }}">{{ label }}</label>
+        </div>
+        {% endfor %}
+        <p class="help-text">Tabular = CSV data, predicts a column. Image = photos sorted into class folders.</p>
+        <div class="btn-row">
+            <button type="submit" class="btn btn-primary">Create project</button>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

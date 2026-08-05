@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — Anvil{% endblock %}
+{% block content %}
+<div class="page-hero">
+    <div class="section-header">
+        <div>
+            <span class="eyebrow"><span class="eyebrow-mark">⚒</span> Project</span>
+            <span class="tag">{{ 'Tabular' if project.task_kind == 'tabular' else 'Image classification' }}</span>
+            <h1 style="margin-top:8px;">{{ project.name }}</h1>
+            <p class="subtitle">{{ project.description or "Upload data, train models, export anywhere." }}</p>
+        </div>
+        <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}"
+              onsubmit="return confirm('Delete this project and all its models? This cannot be undone.');">
+            <button type="submit" class="btn btn-danger btn-sm">Delete project</button>
+        </form>
+    </div>
+</div>
+
+<div class="card panel-accent">
+    <div class="panel-banner">
+        <span class="panel-banner-icon" aria-hidden="true">📂</span>
+        <div>
+            <strong>Datasets</strong>
+            <p>{% if project.task_kind == 'tabular' %}Upload a CSV with headers. One column will be your training target.{% else %}Upload a .zip with one top-level folder per class (e.g. <code>defective/img1.jpg</code>).{% endif %}</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('upload_dataset', project_id=project.id) }}" enctype="multipart/form-data">
+        {% if project.task_kind == 'tabular' %}
+        <label>Upload a CSV</label>
+        <input type="file" name="file" accept=".csv" required>
+        <p class="help-text">First row must be headers.</p>
+        {% else %}
+        <label>Upload a .zip of labeled images</label>
+        <input type="file" name="file" accept=".zip" required>
+        <p class="help-text">Zip structure: one top-level folder per class, images inside.</p>
+        {% endif %}
+        <div class="btn-row"><button type="submit" class="btn btn-primary">Upload dataset</button></div>
+    </form>
+
+    {% if datasets %}
+    <hr class="divider">
+    {% for d in datasets %}
+    {% set meta = d.meta_json | from_json %}
+    <div class="dataset-train-panel" id="dataset-{{ d.id }}">
+        <div class="dataset-train-header">
+            <div>
+                <h3 class="dataset-name">{{ d.name }}</h3>
+                {% if project.task_kind == 'tabular' %}
+                    <span class="tag tag-muted">{{ meta.row_count }} rows · {{ meta.columns | length }} cols</span>
+                {% else %}
+                    <span class="tag tag-muted">{{ meta.image_count }} images · {{ meta.class_counts | length }} classes</span>
+                {% endif %}
+            </div>
+            <a class="btn btn-train-jump" href="#train-form-{{ d.id }}">Train on this dataset ↓</a>
+        </div>
+
+        {% if project.task_kind == 'tabular' %}
+            <p class="help-text">Columns: {{ meta.columns | join(', ') }}</p>
+        {% else %}
+            <p class="help-text">Classes: {% for cls, count in meta.class_counts.items() %}{{ cls }} ({{ count }}){{ ", " if not loop.last }}{% endfor %}</p>
+        {% endif %}
+
+        <div class="train-cta-card" id="train-form-{{ d.id }}">
+            <div class="train-cta-banner">
+                <span class="train-cta-icon" aria-hidden="true">⚒</span>
+                <div>
+                    <strong>Train a model</strong>
+                    <p>Pick a name, choose what to predict, then hit the orange button. Anvil will try the selected algorithms and keep the best one.</p>
+                </div>
+            </div>
+
+            <form method="POST" action="{{ url_for('train_model', project_id=project.id) }}" class="train-form">
+                <input type="hidden" name="dataset_id" value="{{ d.id }}">
+                <label for="model-name-{{ d.id }}">Model name</label>
+                <input id="model-name-{{ d.id }}" type="text" name="model_name" placeholder="e.g. Priority Classifier v1">
+
+                {% if project.task_kind == 'tabular' %}
+                <label for="target-{{ d.id }}">Target column (what to predict)</label>
+                <select id="target-{{ d.id }}" name="target_column" required>
+                    {% for col in meta.columns %}
+                    <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                <label>Algorithms to try <span class="help-text" style="display:inline;font-weight:400;">(leave all checked for full AutoML sweep)</span></label>
+                <div class="algo-grid">
+                {% for algo in algo_choices %}
+                <div class="checkbox-row">
+                    <input type="checkbox" name="algorithms" value="{{ algo }}" id="{{ d.id }}-{{ algo }}" checked>
+                    <label for="{{ d.id }}-{{ algo }}">{{ algorithm_labels.get(algo, algo) }}</label>
+                </div>
+                {% endfor %}
+                </div>
+
+                <div class="btn-row train-btn-row">
+                    <button type="submit" class="btn btn-train">
+                        <span class="btn-train-icon">⚒</span>
+                        Train model
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="help-text">No datasets uploaded yet. Upload one above to unlock training.</p>
+    {% endif %}
+</div>
+
+{% if project.task_kind == 'tabular' %}
+<div class="card panel-accent">
+    <div class="panel-banner">
+        <span class="panel-banner-icon" aria-hidden="true">📥</span>
+        <div>
+            <strong>Bring your own model</strong>
+            <p>Import an ONNX file trained outside Anvil — safe numeric graph only, no pickle execution.</p>
+        </div>
+    </div>
+    <p class="help-text">
+        Already trained something outside Anvil? Import it as an <strong>ONNX</strong> file rather
+        than a pickle — Anvil only ever evaluates the numeric ops in an ONNX graph, so importing one
+        can't run arbitrary code the way loading an uploaded pickle/joblib file could. If your model
+        is currently a pickle, convert it to ONNX first (e.g. with <code>skl2onnx</code> for
+        scikit-learn, or your framework's ONNX exporter) and upload the resulting <code>.onnx</code> file.
+    </p>
+    <form method="POST" action="{{ url_for('import_model', project_id=project.id) }}" enctype="multipart/form-data">
+        <label>Model file (.onnx)</label>
+        <input type="file" name="onnx_file" accept=".onnx" required>
+
+        <label>Model name</label>
+        <input type="text" name="model_name" placeholder="e.g. Legacy Fraud Model v3">
+
+        <label>Task type</label>
+        <select name="task_type" required>
+            {% for key, label in import_task_types.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Feature columns, in the exact order your model expects (comma-separated)</label>
+        <input type="text" name="feature_columns" placeholder="age, income, region" required>
+
+        <label>Class names, in the order your model outputs them (classification only)</label>
+        <input type="text" name="class_names" placeholder="rejected, approved">
+
+        <div class="btn-row"><button type="submit" class="btn btn-primary">Import ONNX model</button></div>
+    </form>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="section-header"><h2>Models</h2></div>
+    {% if models %}
+    <div class="table-wrap">
+    <table>
+        <tr><th>Name</th><th>Algorithm</th><th>Task</th><th>Score</th><th>Status</th><th></th></tr>
+        {% for m in models %}
+        {% set metrics = m.metrics_json | from_json %}
+        <tr>
+            <td>
+                <a href="{{ url_for('model_detail', model_id=m.id) }}">{{ m.name }}</a>
+                {% if m.source == 'imported_onnx' %}<span class="tag tag-muted">imported ONNX</span>{% endif %}
+            </td>
+            <td>{{ 'Imported' if m.source == 'imported_onnx' else algorithm_labels.get(m.algorithm, m.algorithm) }}</td>
+            <td>{{ m.task_type }}</td>
+            <td class="mono">
+                {% if m.source == 'imported_onnx' %}—
+                {% elif m.task_type == 'classification' %}{{ "%.1f%%" | format(metrics.accuracy * 100) }}
+                {% else %}R² {{ "%.3f" | format(metrics.r2) }}{% endif %}
+            </td>
+            <td><span class="tag {{ 'tag-good' if m.status == 'ready' else 'tag-bad' }}">{{ m.status }}</span></td>
+            <td><a href="{{ url_for('model_detail', model_id=m.id) }}" class="btn btn-sm btn-primary">View</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
+    {% else %}
+    <p class="help-text">No models trained yet — upload a dataset above, then train one.</p>
+    {% endif %}
+</div>
+
+
+{% if datasets %}
+<div class="sticky-train-bar" id="sticky-train-bar" role="region" aria-label="Quick train actions">
+    <div class="sticky-train-inner">
+        <div class="sticky-train-copy">
+            <strong>Ready to train?</strong>
+            <span>Scroll to a dataset and hit the orange button — or jump there now.</span>
+        </div>
+        <div class="sticky-train-actions">
+            {% for d in datasets %}
+            <a class="btn btn-train btn-train-sticky" href="#train-form-{{ d.id }}">
+                <span class="btn-train-icon">⚒</span>
+                Train{% if datasets|length > 1 %} · {{ d.name[:24] }}{% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
